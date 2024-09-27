@@ -1,0 +1,75 @@
+from time import sleep
+import requests
+import pandas as pd
+from bs4 import BeautifulSoup
+
+def soup2list(src, list_, attr=None):
+    if attr:
+        for val in src:
+            list_.append(val[attr])
+    else:
+        for val in src:
+            list_.append(val.get_text())
+
+brand = [] #Will match the 'company' below
+users = [] #Username of reviewer
+ratings = [] #Review rating
+locations = [] #Location of reviewer
+dateofexperience = [] #Date of experience being reviewed
+dates = [] #Date review posted or updated
+reviews = [] #Review contents
+replyfrombusiness = [] #True/false dependent on whether business replied
+replydates = [] #Date business replied
+from_page = 1 #Beginning of page range for reviews to scrape
+to_page = 1 #End of page range for reviews to scrape
+company = 'atombank.co.uk' #Take the end bit of the trustpilot URL. E.g. for https://www.trustpilot.com/review/wise.com you'd take 'wise.com'
+
+for i in range(from_page, to_page + 1):
+    result = requests.get(f"https://www.trustpilot.com/review/{company}?page={i}")
+    soup = BeautifulSoup(result.content, 'html.parser')
+
+    soup2list(soup.find_all('span', {'class', 'typography_heading-xxs__QKBS8 typography_appearance-default__AAY17'}), users)
+    soup2list(soup.find_all('div', {'class', 'typography_body-m__xgxZ_ typography_appearance-subtle__8_H2l styles_detailsIcon__Fo_ua'}), locations)
+    soup2list(soup.find_all('div', {'class', 'styles_reviewHeader__iU9Px'}), dates)
+    soup2list(soup.find_all('div', {'class', 'styles_reviewHeader__iU9Px'}), ratings, attr='data-service-review-rating')
+    soup2list(soup.find_all('div', {'class', 'styles_reviewContent__0Q2Tg'}), reviews)
+
+    # Extras I added: date of experience, whether the business replied, and date of business reply
+    soup2list(soup.find_all('p', {'class': 'typography_body-m__xgxZ_ typography_appearance-default__AAY17', 'data-service-review-date-of-experience-typography': 'true'}), dateofexperience)
+    replies = soup.find_all('p', {'class': 'typography_body-m__xgxZ_ typography_appearance-default__AAY17 typography_weight-heavy__E1LTj styles_replyCompany__ro_yX'})
+    dates_ = soup.find_all('time', {'class': 'typography_body-m__xgxZ_ typography_appearance-subtle__8_H2l styles_replyDate__Iem0_'})
+    
+    # Makes sure records added even if no business reply
+    for review in soup.find_all('div', {'class', 'styles_reviewContent__0Q2Tg'}):
+        if len(replies) > 0:
+            replyfrombusiness.append(replies.pop(0).get_text())
+            replydates.append(dates_.pop(0).get_text())
+        else:
+            replyfrombusiness.append('')
+            replydates.append('')
+            
+   # To avoid throttling
+    sleep(1)
+
+   # Removed extra words in date of experience
+dateofexperience = [x.replace('Date of experience:', '') for x in dateofexperience]
+
+review_data = pd.DataFrame({
+    'brand': company,
+    'username': users,
+    'location': locations,
+    'date': dates,
+    'content': reviews,
+    'rating': ratings,
+    'date_of_experience': dateofexperience,
+    'reply_from_business': replyfrombusiness,
+    'reply_date': replydates
+})
+
+#Removes 'Invited' from end of date and adds to own column
+review_data['invited'] = False
+
+for index, row in review_data.iterrows():
+    if 'Invited' in row['date']:
+        review_data.loc[index, 'invited'] = True
+        review_data.loc[index, 'date'] = row['date'].replace('Invited', '').strip()
