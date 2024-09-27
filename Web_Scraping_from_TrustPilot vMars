@@ -12,16 +12,16 @@ def soup2list(src, list_, attr=None):
             list_.append(val.get_text())
 
 brand = [] #Will match the 'company' below
-users = [] #Username of reviewer
-ratings = [] #Review rating
-locations = [] #Location of reviewer
+users = [] 
+ratings = [] 
+locations = [] 
 dateofexperience = [] #Date of experience being reviewed
 dates = [] #Date review posted or updated
-reviews = [] #Review contents
+reviews = [] 
 replyfrombusiness = [] #True/false dependent on whether business replied
 replydates = [] #Date business replied
-from_page = 1 #Beginning of page range for reviews to scrape
-to_page = 1 #End of page range for reviews to scrape
+from_page = 1 
+to_page = 1 
 company = 'atombank.co.uk' #Take the end bit of the trustpilot URL. E.g. for https://www.trustpilot.com/review/wise.com you'd take 'wise.com'
 
 for i in range(from_page, to_page + 1):
