@@ -17,11 +17,11 @@ brand = [] #Will match the 'company' below
 users = [] 
 ratings = [] 
 locations = [] 
-dateofexperience = [] #Date of experience being reviewed
+experiences = [] #Date of experience being reviewed
 dates = [] #Date review posted or updated
 reviews = [] 
-replyfrombusiness = [] #True/false dependent on whether business replied
-replydates = [] #Date business replied
+replies = [] #True/false dependent on whether business replied
+reply_dates = [] #Date business replied
 from_page = 1 
 to_page = 1 
 company = 'atombank.co.uk' #Take the end bit of the trustpilot URL. E.g. for https://www.trustpilot.com/review/wise.com you'd take 'wise.com'
@@ -37,24 +37,24 @@ for i in range(from_page, to_page + 1):
     soup2list(soup.find_all('div', {'class', 'styles_reviewContent__0Q2Tg'}), reviews)
 
     # Extras I added: date of experience, whether the business replied, and date of business reply
-    soup2list(soup.find_all('p', {'class': 'typography_body-m__xgxZ_ typography_appearance-default__AAY17', 'data-service-review-date-of-experience-typography': 'true'}), dateofexperience)
+    soup2list(soup.find_all('p', {'class': 'typography_body-m__xgxZ_ typography_appearance-default__AAY17', 'data-service-review-date-of-experience-typography': 'true'}), experiences)
     replies = soup.find_all('p', {'class': 'typography_body-m__xgxZ_ typography_appearance-default__AAY17 typography_weight-heavy__E1LTj styles_replyCompany__ro_yX'})
     dates_ = soup.find_all('time', {'class': 'typography_body-m__xgxZ_ typography_appearance-subtle__8_H2l styles_replyDate__Iem0_'})
     
     # Makes sure records added even if no business reply
     for review in soup.find_all('div', {'class', 'styles_reviewContent__0Q2Tg'}):
         if len(replies) > 0:
-            replyfrombusiness.append(replies.pop(0).get_text())
-            replydates.append(dates_.pop(0).get_text())
+            replies.append(replies.pop(0).get_text())
+            reply_dates.append(dates_.pop(0).get_text())
         else:
-            replyfrombusiness.append('')
-            replydates.append('')
+            replies.append('')
+            reply_dates.append('')
             
    # To avoid throttling
     sleep(1)
 
    # Removed extra words in date of experience
-dateofexperience = [x.replace('Date of experience:', '') for x in dateofexperience]
+experiences = [x.replace('Date of experience:', '') for x in experiences]
 
 review_data = pd.DataFrame({
     'brand': company,
@@ -63,9 +63,9 @@ review_data = pd.DataFrame({
     'date': dates,
     'content': reviews,
     'rating': ratings,
-    'date_of_experience': dateofexperience,
-    'reply_from_business': replyfrombusiness,
-    'reply_date': replydates
+    'date_of_experience': experiences,
+    'reply_from_business': replies,
+    'reply_date': reply_dates
 })
 
 #Removes 'Invited' from end of date and adds to own column
