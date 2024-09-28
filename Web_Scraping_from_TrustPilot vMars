@@ -2,6 +2,7 @@
 
 from time import sleep
 import requests
+from google.colab import files
 import pandas as pd
 from bs4 import BeautifulSoup
 
@@ -75,3 +76,7 @@ for index, row in review_data.iterrows():
     if 'Invited' in row['date']:
         review_data.loc[index, 'invited'] = True
         review_data.loc[index, 'date'] = row['date'].replace('Invited', '').strip()
+
+# Removes 'Date of experience:' from the content column
+review_data['content'] = review_data['content'].str.replace('Date of experience:.*', '', regex=True)
+  
