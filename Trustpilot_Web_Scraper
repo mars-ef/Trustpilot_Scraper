@@ -5,6 +5,7 @@ import requests
 from google.colab import files
 import pandas as pd
 from bs4 import BeautifulSoup
+from datetime import datetime, timedelta
 
 def soup2list(src, list_, attr=None):
     if attr:
@@ -14,18 +15,18 @@ def soup2list(src, list_, attr=None):
         for val in src:
             list_.append(val.get_text())
 
-brand = [] #Will match the 'company' below
+brand = [] #Same as company
 users = [] 
 ratings = [] 
 locations = [] 
 experiences = [] #Date of experience being reviewed
 dates = [] #Date review posted or updated
-reviews = [] 
+reviews = [] #Content of review
 replies = [] #Whether business replied
 reply_dates = [] #Date business replied
 from_page = 1 
-to_page = 1 
-company = 'atombank.co.uk' #Take the end bit of the trustpilot URL. E.g. for https://www.trustpilot.com/review/wise.com you'd take 'wise.com'
+to_page = 5 
+company = 'www.revolut.com' #Take the end bit of the trustpilot URL. E.g. for https://www.trustpilot.com/review/wise.com you'd take 'wise.com'
 
 for i in range(from_page, to_page + 1):
     result = requests.get(f"https://www.trustpilot.com/review/{company}?page={i}")
@@ -37,46 +38,75 @@ for i in range(from_page, to_page + 1):
     soup2list(soup.find_all('div', {'class', 'styles_reviewHeader__iU9Px'}), ratings, attr='data-service-review-rating')
     soup2list(soup.find_all('div', {'class', 'styles_reviewContent__0Q2Tg'}), reviews)
 
-    # Extras I added: date of experience, whether the business replied, and date of business reply
     soup2list(soup.find_all('p', {'class': 'typography_body-m__xgxZ_ typography_appearance-default__AAY17', 'data-service-review-date-of-experience-typography': 'true'}), experiences)
     replies_ = soup.find_all('p', {'class': 'typography_body-m__xgxZ_ typography_appearance-default__AAY17 typography_weight-heavy__E1LTj styles_replyCompany__ro_yX'}) # Changed variable name to replies_
     dates_ = soup.find_all('time', {'class': 'typography_body-m__xgxZ_ typography_appearance-subtle__8_H2l styles_replyDate__Iem0_'})
     
     # Makes sure records added even if no business reply
     for review in soup.find_all('div', {'class', 'styles_reviewContent__0Q2Tg'}):
-        if len(replies_) > 0: # Using replies_ here
-            replies.append(replies_.pop(0).get_text())
+        if len(replies_) > 0: 
+            replies.append(1) 
             reply_dates.append(dates_.pop(0).get_text())
+            replies_.pop(0)  
         else:
-            replies.append('')
-            reply_dates.append('')
-            
+            replies.append(0)  
+            reply_dates.append('') 
+    
    # To avoid throttling
     sleep(1)
 
-   # Removed extra words in date of experience
-experiences = [x.replace('Date of experience:', '') for x in experiences]
+# Remove extra words from various columns before adding to DataFrame
+def remove_extra_words(text, words_to_remove):
+    for word in words_to_remove:
+        text = text.replace(word, '').strip()
+    return text
 
+dates = [remove_extra_words(date, ['Updated', 'Verified', 'Redirected']) for date in dates]
+content = [remove_extra_words(content, ['Date of experience:.*']) for content in reviews]
+experiences = [remove_extra_words(experience, ['Date of experience:', 'Updated', 'Verified', 'Redirected']) for experience in experiences]
+reply_dates = [remove_extra_words(reply_date, ['Updated', 'Verified', 'Redirected']) for reply_date in reply_dates]
+
+# Create the DataFrame
 review_data = pd.DataFrame({
     'brand': company,
     'username': users,
     'location': locations,
     'date': dates,
-    'content': reviews,
+    'content': content,
     'rating': ratings,
     'date_of_experience': experiences,
     'reply_from_business': replies,
     'reply_date': reply_dates
 })
 
-#Removes 'Invited' from end of date and adds to own column
-review_data['invited'] = False
-
+# Removes 'invited' from 'date' and adds the invited column
+review_data['invited'] = 0
 for index, row in review_data.iterrows():
     if 'Invited' in row['date']:
-        review_data.loc[index, 'invited'] = True
+        review_data.loc[index, 'invited'] = 1
         review_data.loc[index, 'date'] = row['date'].replace('Invited', '').strip()
 
-# Removes 'Date of experience:' from the content column
-review_data['content'] = review_data['content'].str.replace('Date of experience:.*', '', regex=True)
-  
+#Converts the data in 'date' and 'reply_date' to Yyyy-Mm-Dd format
+def convert_relative_date(date_str):
+  if date_str == 'Just now':
+    return datetime.now().strftime('%Y-%m-%d')
+  elif date_str == 'A day ago':
+    return (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+  elif 'days ago' in date_str:
+    days = int(date_str.split(' ')[0])
+    return (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+  elif 'hours ago' in date_str:
+    hours = int(date_str.split(' ')[0])
+    return (datetime.now() - timedelta(hours=hours)).strftime('%Y-%m-%d')
+  elif 'minutes ago' in date_str:
+    minutes = int(date_str.split(' ')[0])
+    return (datetime.now() - timedelta(minutes=minutes)).strftime('%Y-%m-%d')
+  else:
+    try:
+      return datetime.strptime(date_str, '%B %d, %Y').strftime('%Y-%m-%d')
+    except ValueError:
+      return date_str
+
+review_data['date'] = review_data['date'].apply(convert_relative_date)
+review_data['date_of_experience'] = review_data['date_of_experience'].apply(convert_relative_date)
+review_data['reply_date'] = review_data['reply_date'].apply(convert_relative_date)
