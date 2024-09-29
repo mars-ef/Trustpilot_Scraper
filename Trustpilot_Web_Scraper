@@ -1,7 +1,5 @@
 #video on how to use https://www.youtube.com/watch?v=VD0wIiLVSRA
-<a target="_blank" href="https://colab.research.google.com/github/mars-ef/Trustpilot_Scraper/blob/main/Trustpilot_Web_Scraper">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
+
 from time import sleep
 import requests
 from google.colab import files
